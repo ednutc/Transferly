@@ -1,17 +1,17 @@
-# Transferly Frontend
+# Transferly Mini App
 
-`slipcrafts/` is the React 18 + Vite + Tailwind frontend for the Flashing workspace. The active backend now lives under [`api/`](/workspaces/Transferly/api), and this frontend will be migrated to use that API directly for auth, points, receipts, referrals, email delivery, Telegram-linked flows, and admin actions.
+`miniapp/` is the React 18 + Vite + Tailwind frontend for the Flashing workspace. It is being refactored into the Telegram Mini App surface for Transferly/SlipCraft flows. The active backend lives under [`api/`](/workspaces/Transferly/api), and this frontend should use that API directly for auth, points, receipts, referrals, email delivery, Telegram-linked flows, and admin actions.
 
 ## Current Status
 
-- The frontend source tree is present and bootstrapped with Vite.
+- The Mini App frontend source tree is present and bootstrapped with Vite.
 - Much of the current app logic still reflects an older Supabase-backed scaffold.
-- The target state is a Transferly-style SPA that talks only to the shared `api/` backend.
+- The target state is a Telegram-native Mini App shell that talks only to the shared `api/` backend.
 
 ## Directory Role
 
 ```text
-slipcrafts/
+miniapp/
 ├── index.html
 ├── package.json
 ├── vite.config.js
@@ -36,7 +36,7 @@ Prerequisites:
 Install and run:
 
 ```bash
-cd slipcrafts
+cd miniapp
 npm install
 npm run dev
 ```
@@ -48,13 +48,14 @@ npm run build
 npm run preview
 ```
 
-## Migration Notes
+## Mini App Notes
 
-The frontend is in transition. Until the API migration is completed, assume the following:
+The frontend is in transition. Until the Telegram Mini App migration is completed, assume the following:
 
 - `src/context/` and `src/lib/` may still contain legacy data-access code.
 - Public docs that described a completed localStorage-only or fully static app were removed because they no longer match the repo.
 - The source of truth for backend behavior is the Express app in `api/`, not any legacy frontend persistence layer.
+- Telegram Mini App behavior must follow the official docs at `https://docs.telegram-mini-apps.com/`, especially launch parameters, `initData` validation, theming, viewport, and back/main button behavior.
 
 ## Related Paths
 

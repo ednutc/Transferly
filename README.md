@@ -1,6 +1,6 @@
 # Flashing
 
-Production-grade PayPal invoicing and payouts backend built with Node.js, CommonJS, Express, SQLite, Redis, BullMQ, and Zod. The active backend package now lives entirely under `api/`, while the repo root keeps project docs and the `slipcrafts/` frontend workspace.
+Production-grade PayPal invoicing and payouts backend built with Node.js, CommonJS, Express, SQLite, Redis, BullMQ, and Zod. The active backend package now lives entirely under `api/`, while the repo root keeps project docs and the `miniapp/` Telegram Mini App frontend workspace.
 
 ## Stack
 
@@ -42,7 +42,7 @@ api/
   utils/
   webhooks/
 docs/codex/references/
-slipcrafts/
+miniapp/
 ```
 
 The ledger remains the source of truth for balances. PayPal changes external state, but wallet values come from `wallets` plus `ledger_entries`, not from provider status alone.

@@ -7,6 +7,18 @@ const { referralService } = require('./referralService');
 const { slipcraftReceiptService } = require('./slipcraftReceiptService');
 const { slipcraftUserService } = require('./slipcraftUserService');
 
+const MINI_APP_SECTIONS = {
+  home: '',
+  generate: 'studio',
+  studio: 'studio',
+  wallet: 'wallet',
+  vault: 'vault',
+  history: 'vault',
+  support: 'support',
+  profile: 'profile',
+  ops: 'ops'
+};
+
 function parseTelegramCommand(text) {
   const trimmed = String(text || '').trim();
   const [rawCommand, ...parts] = trimmed.split(/\s+/);
@@ -14,6 +26,36 @@ function parseTelegramCommand(text) {
     command: rawCommand || '',
     args: parts,
     rawArgs: parts.join(' ')
+  };
+}
+
+function buildMiniAppUrl(section = 'home') {
+  const mappedSection = MINI_APP_SECTIONS[section] ?? MINI_APP_SECTIONS.home;
+  const url = new URL(config.TELEGRAM_MINI_APP_URL);
+  const basePath = url.pathname.replace(/\/+$/, '');
+  url.pathname = mappedSection ? `${basePath}/${mappedSection}` : basePath || '/miniapp';
+  url.searchParams.set('startapp', section);
+  return url.toString();
+}
+
+function buildMiniAppLaunchPayload() {
+  return {
+    launch_buttons: [
+      { text: 'Open Mini App', section: 'home', url: buildMiniAppUrl('home') },
+      { text: 'Generate Receipt', section: 'generate', url: buildMiniAppUrl('generate') },
+      { text: 'Wallet', section: 'wallet', url: buildMiniAppUrl('wallet') },
+      { text: 'Support', section: 'support', url: buildMiniAppUrl('support') }
+    ],
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: 'Open Mini App', web_app: { url: buildMiniAppUrl('home') } }],
+        [
+          { text: 'Generate Receipt', web_app: { url: buildMiniAppUrl('generate') } },
+          { text: 'Wallet', web_app: { url: buildMiniAppUrl('wallet') } }
+        ],
+        [{ text: 'Support', web_app: { url: buildMiniAppUrl('support') } }]
+      ]
+    }
   };
 }
 
@@ -138,8 +180,20 @@ async function handleProfile(account) {
   };
 }
 
+async function handleMiniAppLaunch() {
+  return {
+    ok: true,
+    message: 'Open Transferly as a Telegram Mini App for receipts, wallet, history, and support.',
+    data: buildMiniAppLaunchPayload()
+  };
+}
+
 async function dispatchCommand(account, parsedCommand) {
   switch (parsedCommand.command) {
+    case '/start':
+    case '/menu':
+    case '/miniapp':
+      return handleMiniAppLaunch();
     case '/balance':
       await resolveLinkedUser(account);
       return handleBalance(account);
@@ -211,6 +265,8 @@ async function handleWebhook(update) {
 
 module.exports = {
   telegramBotService: {
-    handleWebhook
+    handleWebhook,
+    buildMiniAppUrl,
+    buildMiniAppLaunchPayload
   }
 };

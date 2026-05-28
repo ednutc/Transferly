@@ -1,7 +1,7 @@
 {
-  "name": "transferly",
+  "name": "transferly-miniapp",
   "version": "1.0.0",
-  "description": "Transferly - Professional Receipt Generation Platform",
+  "description": "Transferly Telegram Mini App frontend",
   "type": "module",
   "scripts": {
     "dev": "vite",

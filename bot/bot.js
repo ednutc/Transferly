@@ -86,6 +86,7 @@ const bot = new Bot(config.botToken);
 const TELEGRAM_COMMANDS = [
   { command: "start", description: "Open the Transferly bot" },
   { command: "menu", description: "Show Transferly actions" },
+  { command: "miniapp", description: "Open the Transferly Mini App" },
   { command: "help", description: "How to use Transferly bot" },
   { command: "services", description: "Browse Transferly services" },
   { command: "whoami", description: "Show your bot access" },
@@ -106,6 +107,17 @@ const SCREEN_TYPES = Object.freeze({
   RESULT: "result",
 });
 const PAYMENT_PROVIDER_SLUGS = new Set(["paypal", "stripe", "wise", "paystack", "flutterwave", "crypto"]);
+const MINI_APP_SECTIONS = Object.freeze({
+  home: "",
+  generate: "studio",
+  studio: "studio",
+  vault: "vault",
+  history: "vault",
+  wallet: "wallet",
+  support: "support",
+  profile: "profile",
+  ops: "ops",
+});
 const PROVIDER_LANE_DETAILS = {
   "custom-details": {
     label: "Custom Details",
@@ -434,10 +446,40 @@ function addButtonGrid(keyboard, buttons, columns = 2) {
   return keyboard;
 }
 
+function buildMiniAppUrl(section = "home") {
+  if (!config.miniAppUrl) {
+    return "";
+  }
+
+  const mappedSection = MINI_APP_SECTIONS[section] ?? MINI_APP_SECTIONS.home;
+  const url = new URL(config.miniAppUrl);
+  const basePath = url.pathname.replace(/\/+$/, "");
+  url.pathname = mappedSection ? `${basePath}/${mappedSection}` : basePath || "/miniapp";
+  url.searchParams.set("startapp", section);
+  return url.toString();
+}
+
+function addMiniAppButton(keyboard, label = "🚀 Open Mini App", section = "home") {
+  const url = buildMiniAppUrl(section);
+  if (!url) {
+    return keyboard;
+  }
+
+  keyboard.inline_keyboard = keyboard.inline_keyboard || [];
+  keyboard.inline_keyboard.push([
+    {
+      text: label,
+      web_app: { url },
+    },
+  ]);
+  return keyboard;
+}
+
 function buildGuestKeyboard(ctx, access = {}) {
   const keyboard = new InlineKeyboard()
     .text("🪪 Whoami", buildCallbackData(ctx, "WHOAMI"))
     .text("📚 Help", buildCallbackData(ctx, "HELP"));
+  addMiniAppButton(keyboard);
   const adminUsername = (access.configuredAdminUsername || config.admin?.username || "").replace(/^@/, "");
   if (adminUsername) {
     keyboard.row().url("📱 Request Access", `https://t.me/${adminUsername}`);
@@ -454,6 +496,7 @@ function buildStartKeyboard(ctx, access = {}) {
     .text("📚 Help", buildCallbackData(ctx, "HELP"))
     .row()
     .text("✖️ Cancel Prompt", buildCallbackData(ctx, "CANCEL"));
+  addMiniAppButton(keyboard);
   const adminUsername = (access.configuredAdminUsername || config.admin?.username || "").replace(/^@/, "");
   if (!access.isAuthorized && adminUsername) {
     keyboard.row().url("📱 Request Access", `https://t.me/${adminUsername}`);
@@ -510,6 +553,7 @@ function buildMainMenuKeyboard(ctx, access = {}) {
       .text("👥 Users", buildCallbackData(ctx, "USERS"));
   }
 
+  addMiniAppButton(keyboard);
   return keyboard;
 }
 
@@ -2410,6 +2454,38 @@ async function handleCancel(ctx) {
   await replyHtml(ctx, "Current bot prompt cancelled.", buildStartKeyboard(ctx, await getAdminStatus(ctx)));
 }
 
+async function handleMiniApp(ctx) {
+  resetSession(ctx);
+  rememberScreen(ctx, "MINI_APP");
+  const access = await getAdminStatus(ctx);
+  const lines = [
+    "<b>🚀 Transferly Mini App</b>",
+    "",
+    "Open the Telegram-native workspace for receipts, wallet, history, support, and operator flows.",
+    "",
+    config.miniAppUrl
+      ? "Use the buttons below to launch the Mini App directly inside Telegram."
+      : "Mini App URL is not configured. Set MINI_APP_URL in bot/.env.",
+  ];
+
+  const keyboard = new InlineKeyboard()
+    .text("📋 Menu", buildCallbackData(ctx, "MENU"))
+    .text("🧰 Services", buildCallbackData(ctx, "SERVICES"));
+  addMiniAppButton(keyboard, "🚀 Open Mini App", "home");
+  addMiniAppButton(keyboard, "⚡ Generate Receipt", "generate");
+  addMiniAppButton(keyboard, "💰 Wallet", "wallet");
+  addMiniAppButton(keyboard, "🛟 Support", "support");
+
+  if (!access.isAuthorized) {
+    const adminUsername = (access.configuredAdminUsername || config.admin?.username || "").replace(/^@/, "");
+    if (adminUsername) {
+      keyboard.row().url("📱 Request Access", `https://t.me/${adminUsername}`);
+    }
+  }
+
+  await replyHtml(ctx, lines.join("\n"), keyboard);
+}
+
 async function handleHelp(ctx) {
   rememberScreen(ctx, "HELP");
   const access = await getAdminStatus(ctx);
@@ -2421,6 +2497,7 @@ async function handleHelp(ctx) {
     "<b>🧭 Main Navigation</b>",
     "• /start — opens a clean Transferly home screen.",
     "• /menu — resets the current flow and returns to the main workspace menu.",
+    "• /miniapp — opens Telegram Mini App launch buttons.",
     "• /services — opens the service catalog.",
     "• /help — shows this full guide.",
     "• /cancel — cancels the current prompt or typed flow.",
@@ -4310,6 +4387,7 @@ registerCommands(bot, {
   handlers: {
     handleStart,
     handleMenu,
+    handleMiniApp,
     handleServices,
     handleHelp,
     handleWhoami,
@@ -4363,6 +4441,7 @@ registerCallbackRouter(bot, {
     handleBack,
     handleCancel,
     handleMenu,
+    handleMiniApp,
     handleServices,
     handleHelp,
     handleProfile,
@@ -4488,6 +4567,7 @@ module.exports = {
   buildStartKeyboard,
   buildMainMenuKeyboard,
   buildBackKeyboard,
+  buildMiniAppUrl,
   buildUsersKeyboard,
   buildUsersListKeyboard,
   buildUserDetailKeyboard,

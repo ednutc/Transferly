@@ -14,7 +14,13 @@ const loginSchema = z.object({
   password: z.string().min(8).max(128)
 });
 
+const telegramMiniAppLoginSchema = z.object({
+  initData: z.string().trim().min(1).max(8192),
+  startParam: z.string().trim().max(512).optional()
+});
+
 module.exports = {
   registerSchema,
-  loginSchema
+  loginSchema,
+  telegramMiniAppLoginSchema
 };

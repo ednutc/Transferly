@@ -156,6 +156,16 @@ export function register({ name, email, password, referralCode }) {
   });
 }
 
+export function loginWithTelegramMiniApp({ initData, startParam }) {
+  return apiRequest('/api/auth/telegram-mini-app', {
+    method: 'POST',
+    body: {
+      initData,
+      startParam: startParam || undefined
+    }
+  });
+}
+
 export function generateReceipt(payload) {
   return apiRequest('/api/receipt/generate', {
     method: 'POST',
