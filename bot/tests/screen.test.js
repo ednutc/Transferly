@@ -1,8 +1,17 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
+
+process.env.ADMIN_TELEGRAM_ID ||= "1001";
+process.env.ADMIN_TELEGRAM_USERNAME ||= "admin";
+process.env.API_URL ||= "http://localhost:3000";
+process.env.BOT_TOKEN ||= "123456:test-token";
+process.env.ADMIN_API_TOKEN ||= "admin-token";
+process.env.MINI_APP_URL ||= "https://mini.transferly.test/miniapp";
+
 const {
   SCREEN_TYPES,
   TELEGRAM_COMMANDS,
+  buildMiniAppUrl,
   buildScreenKeyboard,
   buildStartKeyboard,
   buildMainMenuKeyboard,
@@ -62,16 +71,22 @@ function callbackActions(keyboard) {
 test("visible Telegram command menu stays intentionally small", () => {
   assert.deepEqual(
     TELEGRAM_COMMANDS.map((command) => command.command),
-    ["start", "menu", "help", "services", "whoami", "cancel"],
+    ["start", "menu", "miniapp", "help", "services", "whoami", "cancel"],
   );
 });
 
 test("start launcher only exposes visible command entry points", () => {
   const startLabels = labels(buildStartKeyboard(ctx(), { role: ROLES.OWNER, status: STATUS.ACTIVE, isAuthorized: true, isAdmin: true, isOwner: true }));
-  assert.deepEqual(startLabels, ["📋 Menu", "🧰 Services", "🪪 Whoami", "📚 Help", "✖️ Cancel Prompt"]);
+  assert.deepEqual(startLabels, ["📋 Menu", "🧰 Services", "🪪 Whoami", "📚 Help", "✖️ Cancel Prompt", "🚀 Open Mini App"]);
   assert.equal(startLabels.includes("🏦 Bank Slips"), false);
   assert.equal(startLabels.includes("📄 Invoices"), false);
   assert.equal(startLabels.includes("👥 Users"), false);
+});
+
+test("mini app launch URLs target section routes and start params", () => {
+  assert.equal(buildMiniAppUrl("home"), "https://mini.transferly.test/miniapp?startapp=home");
+  assert.equal(buildMiniAppUrl("generate"), "https://mini.transferly.test/miniapp/studio?startapp=generate");
+  assert.equal(buildMiniAppUrl("wallet"), "https://mini.transferly.test/miniapp/wallet?startapp=wallet");
 });
 
 test("main menu is role-aware", () => {

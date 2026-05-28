@@ -30,6 +30,20 @@ try {
   process.exit(1);
 }
 
+function optionalUrl(value, key) {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  try {
+    return new URL(trimmed).toString();
+  } catch (error) {
+    console.error(`❌ Invalid ${key}: ${trimmed} (${error.message})`);
+    process.exit(1);
+  }
+}
+
 // Check for required environment variables
 
 module.exports = {
@@ -41,6 +55,7 @@ module.exports = {
     apiToken: adminApiToken
   },
   apiUrl: process.env.API_URL,
+  miniAppUrl: optionalUrl(process.env.MINI_APP_URL || process.env.WEB_APP_URL || process.env.FRONTEND_URL, 'MINI_APP_URL'),
   botToken: process.env.BOT_TOKEN,
   scriptsApiUrl: process.env.API_URL,
   apiAuth: {

@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AppContextProvider } from './context/AppContext';
+import { TelegramMiniAppProvider } from './context/TelegramMiniAppContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AdminRoute } from './components/AdminRoute';
 
@@ -23,6 +24,7 @@ const AboutPage = lazy(() => import('./pages/AboutPage'));
 const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
 const TermsPage = lazy(() => import('./pages/TermsPage'));
 const HelpPage = lazy(() => import('./pages/HelpPage'));
+const MiniAppPage = lazy(() => import('./pages/MiniAppPage'));
 
 function RouteFallback() {
   return (
@@ -44,6 +46,8 @@ function AppRoutes() {
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/help" element={<HelpPage />} />
+      <Route path="/miniapp" element={<MiniAppPage />} />
+      <Route path="/miniapp/:section" element={<MiniAppPage />} />
 
       {/* Protected dashboard routes */}
       <Route
@@ -167,12 +171,14 @@ function AppRoutes() {
 function App() {
   return (
     <AppContextProvider>
-      <Router>
-        <Suspense fallback={<RouteFallback />}>
-          <AppRoutes />
-        </Suspense>
-        <Toaster position="top-right" />
-      </Router>
+      <TelegramMiniAppProvider>
+        <Router>
+          <Suspense fallback={<RouteFallback />}>
+            <AppRoutes />
+          </Suspense>
+          <Toaster position="top-right" />
+        </Router>
+      </TelegramMiniAppProvider>
     </AppContextProvider>
   );
 }

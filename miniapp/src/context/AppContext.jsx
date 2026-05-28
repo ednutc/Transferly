@@ -41,6 +41,7 @@ import {
   getReferralStats,
   listInvoices as listInvoicesRequest,
   listTopUpOrders as listTopUpOrdersRequest,
+  loginWithTelegramMiniApp as loginWithTelegramMiniAppRequest,
   listPayouts as listPayoutsRequest,
   login as loginRequest,
   previewInvoice as previewInvoiceRequest,
@@ -65,6 +66,7 @@ import {
   resumeInvoiceReminderConfiguration as resumeInvoiceReminderConfigurationRequest,
   updateTestimonial as updateTestimonialRequest
 } from '../lib/api';
+import { getRawTelegramInitData, getTelegramStartParam } from '../lib/telegramMiniApp';
 
 export const AppContext = createContext();
 
@@ -273,6 +275,7 @@ export function AppContextProvider({ children }) {
   const [faqs, setFaqsState] = useState([]);
   const [testimonials, setTestimonialsState] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [telegramAuthState, setTelegramAuthState] = useState('idle');
   const [allUsers, setAllUsers] = useState([]);
   const [invoices, setInvoicesState] = useState([]);
   const [invoiceReminderConfigurations, setInvoiceReminderConfigurationsState] = useState([]);
@@ -511,6 +514,31 @@ export function AppContextProvider({ children }) {
     }
   }, []);
 
+  const authenticateTelegramMiniApp = useCallback(async () => {
+    const initData = getRawTelegramInitData();
+    if (!initData) {
+      setTelegramAuthState('unavailable');
+      return false;
+    }
+
+    setTelegramAuthState('authenticating');
+
+    try {
+      const result = await loginWithTelegramMiniAppRequest({
+        initData,
+        startParam: getTelegramStartParam()
+      });
+      setStoredToken(result.token);
+      const snapshot = await getMe();
+      applySnapshot(snapshot);
+      setTelegramAuthState('authenticated');
+      return true;
+    } catch (error) {
+      setTelegramAuthState('failed');
+      throw error;
+    }
+  }, [applySnapshot]);
+
   useEffect(() => {
     let active = true;
 
@@ -525,6 +553,7 @@ export function AppContextProvider({ children }) {
 
         const token = getStoredToken() || getStoredAdminToken();
         if (!token) {
+          await authenticateTelegramMiniApp();
           return;
         }
 
@@ -536,6 +565,7 @@ export function AppContextProvider({ children }) {
         } catch (error) {
           if (error.status === 401 || error.status === 403) {
             clearStoredToken();
+            await authenticateTelegramMiniApp();
           } else {
             throw error;
           }
@@ -554,7 +584,7 @@ export function AppContextProvider({ children }) {
     return () => {
       active = false;
     };
-  }, [applyBootstrap, applySnapshot]);
+  }, [applyBootstrap, applySnapshot, authenticateTelegramMiniApp]);
 
   const login = useCallback(async (email, password) => {
     try {
@@ -1174,6 +1204,7 @@ export function AppContextProvider({ children }) {
     user,
     profile,
     loading,
+    telegramAuthState,
     login,
     register,
     logout,

@@ -24,6 +24,8 @@ process.env.STRIPE_PAYOUTS_ENABLED = 'true';
 process.env.CRYPTO_COMMERCE_API_KEY = 'crypto-commerce-key';
 process.env.CRYPTO_COMMERCE_WEBHOOK_SECRET = 'crypto-commerce-webhook-secret';
 process.env.CRYPTO_COMMERCE_API_BASE_URL = 'https://api.commerce.coinbase.test';
+process.env.TELEGRAM_BOT_TOKEN = '1234567890:test-mini-app-token';
+process.env.TELEGRAM_MINI_APP_AUTH_EXPIRES_IN_SECONDS = '3600';
 process.env.MAX_SINGLE_PAYOUT = '1000';
 process.env.DAILY_PAYOUT_LIMIT = '5000';
 process.env.MAX_PAYOUTS_PER_HOUR = '5';
@@ -817,6 +819,25 @@ function bearerHeaders(token, headers = {}) {
     authorization: `Bearer ${token}`,
     ...headers
   };
+}
+
+function createTelegramMiniAppInitData({ botToken = process.env.TELEGRAM_BOT_TOKEN, user, authDate, startParam }) {
+  const params = new URLSearchParams();
+  params.set('auth_date', String(authDate || Math.floor(Date.now() / 1000)));
+  params.set('user', JSON.stringify(user));
+  if (startParam) {
+    params.set('start_param', startParam);
+  }
+
+  const dataCheckString = [...params.entries()]
+    .map(([key, value]) => `${key}=${value}`)
+    .sort()
+    .join('\n');
+  const secret = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+  const hash = crypto.createHmac('sha256', secret).update(dataCheckString).digest('hex');
+  params.set('hash', hash);
+
+  return params.toString();
 }
 
 function decodeDataUrl(dataUrl, prefix) {
@@ -2497,6 +2518,36 @@ describe('API integration flows', () => {
     assert.equal(telegramBody.command, '/balance');
     assert.equal(telegramBody.response.data.points, 40);
 
+    const telegramMiniAppPayload = JSON.stringify({
+      update_id: 4,
+      message: {
+        text: '/miniapp',
+        chat: {
+          id: 'tg-chat-1'
+        },
+        from: {
+          id: 'tg-user-1',
+          username: 'slipcraft_bot_user',
+          first_name: 'Slip',
+          last_name: 'Craft'
+        }
+      }
+    });
+
+    const telegramMiniAppResponse = await injectRequest(app, {
+      method: 'POST',
+      url: '/api/telegram/webhook',
+      headers: jsonHeaders(telegramMiniAppPayload, {
+        'x-telegram-bot-api-secret-token': ''
+      }),
+      body: telegramMiniAppPayload
+    });
+
+    assert.equal(telegramMiniAppResponse.status, 200);
+    const telegramMiniAppBody = telegramMiniAppResponse.json();
+    assert.equal(telegramMiniAppBody.command, '/miniapp');
+    assert.ok(telegramMiniAppBody.response.data.reply_markup.inline_keyboard[0][0].web_app.url.includes('/miniapp?startapp=home'));
+
     const telegramGeneratePayload = JSON.stringify({
       update_id: 2,
       message: {
@@ -2563,6 +2614,64 @@ describe('API integration flows', () => {
 
     const profile = await profileRepository.findByUserId(registerBody.user.id);
     assert.equal(profile.points, 30);
+  });
+
+  test('POST /api/auth/telegram-mini-app validates Telegram init data and issues a user token', async () => {
+    const initData = createTelegramMiniAppInitData({
+      user: {
+        id: 9001002,
+        first_name: 'Mini',
+        last_name: 'App',
+        username: 'miniapp_user',
+        language_code: 'en'
+      },
+      startParam: 'wallet'
+    });
+    const payload = JSON.stringify({
+      initData,
+      startParam: 'wallet'
+    });
+
+    const response = await injectRequest(app, {
+      method: 'POST',
+      url: '/api/auth/telegram-mini-app',
+      headers: jsonHeaders(payload),
+      body: payload
+    });
+
+    assert.equal(response.status, 200);
+    const body = response.json();
+    assert.ok(body.token);
+    assert.equal(body.user.email, 'telegram-9001002@telegram.transferly.local');
+    assert.equal(body.user.profile.name, 'Mini App');
+    assert.equal(body.user.profile.points, 50);
+
+    const account = await telegramRepository.findAccountByTelegramUserId(9001002);
+    assert.equal(account.userId, body.user.id);
+    assert.equal(account.username, 'miniapp_user');
+
+    const meResponse = await injectRequest(app, {
+      method: 'GET',
+      url: '/api/me',
+      headers: bearerHeaders(body.token)
+    });
+
+    assert.equal(meResponse.status, 200);
+    assert.equal(meResponse.json().user.id, body.user.id);
+
+    const tamperedInitData = `${initData.slice(0, -1)}${initData.endsWith('0') ? '1' : '0'}`;
+    const tamperedPayload = JSON.stringify({
+      initData: tamperedInitData
+    });
+    const tamperedResponse = await injectRequest(app, {
+      method: 'POST',
+      url: '/api/auth/telegram-mini-app',
+      headers: jsonHeaders(tamperedPayload),
+      body: tamperedPayload
+    });
+
+    assert.equal(tamperedResponse.status, 401);
+    assert.equal(tamperedResponse.json().code, 'TELEGRAM_INIT_DATA_INVALID');
   });
 
   test('telegram receipt webhook preserves Transferly service-specific details and filters history by service', async () => {

@@ -7,6 +7,7 @@ const https = require('https');
 
 const token = process.env.BOT_TOKEN;
 const chatId = process.env.SMOKE_CHAT_ID || process.env.ADMIN_TELEGRAM_ID;
+const miniAppUrl = process.env.MINI_APP_URL || process.env.WEB_APP_URL || process.env.FRONTEND_URL;
 
 if (!token || !chatId) {
   console.error('Missing BOT_TOKEN or SMOKE_CHAT_ID/ADMIN_TELEGRAM_ID.');
@@ -66,25 +67,32 @@ async function main() {
     '',
     'Telegram does not let a bot click its own inline buttons, so this smoke script verifies token/chat delivery and sends signed buttons for live operator tap-through.',
   ].join('\n');
+  const inlineKeyboard = [
+    [
+      { text: 'Users', callback_data: callback('USERS') },
+      { text: 'Search Users', callback_data: callback('USERS_SEARCH') },
+    ],
+    [
+      { text: 'Analytics', callback_data: callback('BOT_ANALYTICS') },
+      { text: 'Payment Audit', callback_data: callback('PAYMENT_AUDIT') },
+    ],
+    [
+      { text: 'Main Menu', callback_data: callback('MENU') },
+    ],
+  ];
+
+  if (miniAppUrl) {
+    inlineKeyboard.splice(2, 0, [
+      { text: 'Open Mini App', web_app: { url: new URL(miniAppUrl).toString() } },
+    ]);
+  }
 
   const result = await apiRequest('sendMessage', {
     chat_id: chatId,
     text,
     parse_mode: 'HTML',
     reply_markup: {
-      inline_keyboard: [
-        [
-          { text: 'Users', callback_data: callback('USERS') },
-          { text: 'Search Users', callback_data: callback('USERS_SEARCH') },
-        ],
-        [
-          { text: 'Analytics', callback_data: callback('BOT_ANALYTICS') },
-          { text: 'Payment Audit', callback_data: callback('PAYMENT_AUDIT') },
-        ],
-        [
-          { text: 'Main Menu', callback_data: callback('MENU') },
-        ],
-      ],
+      inline_keyboard: inlineKeyboard,
     },
   });
 
